@@ -104,6 +104,10 @@ impl InOctetStream {
             cursor: Cursor::new(data.clone()),
         }
     }
+
+    pub fn new_from_cursor(cursor: Cursor<Vec<u8>>) -> Self {
+        Self { cursor }
+    }
 }
 
 impl ReadOctetStream for InOctetStream {
