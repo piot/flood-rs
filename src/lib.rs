@@ -10,6 +10,7 @@ pub trait WriteOctetStream {
     fn write_i16(&mut self, v: i16) -> Result<()>;
     fn write_u8(&mut self, v: u8) -> Result<()>;
     fn write_i8(&mut self, v: i8) -> Result<()>;
+    fn write_debug_marker(&mut self, marker: u8) -> Result<()>;
 }
 
 pub trait ReadOctetStream {
@@ -22,15 +23,20 @@ pub trait ReadOctetStream {
     fn read_i16(&mut self) -> Result<i16>;
     fn read_u8(&mut self) -> Result<u8>;
     fn read_i8(&mut self) -> Result<i8>;
+    fn verify_debug_marker(&mut self, expected: u8) -> Result<()>;
 }
 
 pub struct OutOctetStream {
     pub data: Vec<u8>,
+    pub should_write_markers: bool,
 }
 
 impl OutOctetStream {
     pub fn new() -> Self {
-        Self { data: Vec::new() }
+        Self {
+            data: Vec::new(),
+            should_write_markers: false,
+        }
     }
 }
 
@@ -92,21 +98,34 @@ impl WriteOctetStream for OutOctetStream {
     fn write_i8(&mut self, v: i8) -> Result<()> {
         self.write_u8(v as u8)
     }
+
+    fn write_debug_marker(&mut self, marker: u8) -> Result<()> {
+        if self.should_write_markers {
+            self.write_u8(marker)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 pub struct InOctetStream {
     pub cursor: Cursor<Vec<u8>>,
+    pub should_verify_markers: bool,
 }
 
 impl InOctetStream {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             cursor: Cursor::new(data.clone()),
+            should_verify_markers: false,
         }
     }
 
     pub fn new_from_cursor(cursor: Cursor<Vec<u8>>) -> Self {
-        Self { cursor }
+        Self {
+            cursor,
+            should_verify_markers: false,
+        }
     }
 }
 
@@ -162,6 +181,21 @@ impl ReadOctetStream for InOctetStream {
         self.cursor.read_exact(&mut buf)?;
         Ok(buf[0] as i8)
     }
+
+    fn verify_debug_marker(&mut self, expected: u8) -> Result<()> {
+        if !self.should_verify_markers {
+            return Ok(()); // Skip verification;
+        }
+        let mut buf = [0; 1];
+        self.cursor.read_exact(&mut buf)?;
+        if buf[0] != expected {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Invalid marker, expected: {}, got: {}", expected, buf[0]),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -177,6 +211,41 @@ mod tests {
         assert!(result.is_ok());
 
         let mut in_stream = InOctetStream::new(out_stream.data);
+        let result = in_stream.read_u32();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), EXPECTED_U32);
+    }
+
+    #[test]
+    fn write_markers() {
+        const EXPECTED_U32: u32 = 0x12345678;
+        let mut out_stream = OutOctetStream::new();
+        out_stream.should_write_markers = true;
+        out_stream.write_debug_marker(0xcb).unwrap();
+        let result = out_stream.write_u32(EXPECTED_U32);
+        assert_eq!(out_stream.data.len(), 5);
+
+        assert!(result.is_ok());
+
+        let mut in_stream = InOctetStream::new(out_stream.data);
+        in_stream.should_verify_markers = true;
+        in_stream.verify_debug_marker(0xcb).unwrap();
+        let result = in_stream.read_u32();
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), EXPECTED_U32);
+    }
+
+    #[test]
+    fn skip_write_markers() {
+        const EXPECTED_U32: u32 = 0x12345678;
+        let mut out_stream = OutOctetStream::new();
+        out_stream.write_debug_marker(0xcb).unwrap();
+        let result = out_stream.write_u32(EXPECTED_U32);
+        assert_eq!(out_stream.data.len(), 4);
+        assert!(result.is_ok());
+
+        let mut in_stream = InOctetStream::new(out_stream.data);
+        in_stream.verify_debug_marker(0xcb).unwrap();
         let result = in_stream.read_u32();
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), EXPECTED_U32);
