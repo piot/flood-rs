@@ -5,7 +5,6 @@
 use std::io::{Cursor, Read, Result};
 
 pub mod prelude;
-mod test;
 
 pub trait WriteOctetStream {
     fn write(&mut self, v: &[u8]) -> Result<()>;
@@ -33,12 +32,17 @@ pub trait ReadOctetStream {
 }
 
 pub struct OutOctetStream {
-    pub data: Vec<u8>,
+    data: Vec<u8>,
 }
 
 impl OutOctetStream {
     pub fn new() -> Self {
         Self { data: Vec::new() }
+    }
+
+    #[inline]
+    pub fn data(&self) -> &Vec<u8> {
+        &self.data
     }
 }
 
@@ -107,9 +111,9 @@ pub struct InOctetStream {
 }
 
 impl InOctetStream {
-    pub fn new(data: Vec<u8>) -> Self {
+    pub fn new(data: &[u8]) -> Self {
         Self {
-            cursor: Cursor::new(data.clone()),
+            cursor: Cursor::new(data.to_vec()),
         }
     }
 
