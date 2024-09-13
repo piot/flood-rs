@@ -4,6 +4,7 @@
  */
 use std::io::{Cursor, Read, Result};
 
+pub mod prelude;
 mod test;
 
 pub trait WriteOctetStream {
@@ -16,7 +17,6 @@ pub trait WriteOctetStream {
     fn write_i16(&mut self, v: i16) -> Result<()>;
     fn write_u8(&mut self, v: u8) -> Result<()>;
     fn write_i8(&mut self, v: i8) -> Result<()>;
-    fn write_debug_marker(&mut self, marker: u8) -> Result<()>;
 }
 
 pub trait ReadOctetStream {
@@ -29,21 +29,16 @@ pub trait ReadOctetStream {
     fn read_i16(&mut self) -> Result<i16>;
     fn read_u8(&mut self) -> Result<u8>;
     fn read_i8(&mut self) -> Result<i8>;
-    fn verify_debug_marker(&mut self, expected: u8) -> Result<()>;
     fn has_reached_end(&self) -> bool;
 }
 
 pub struct OutOctetStream {
     pub data: Vec<u8>,
-    pub should_write_markers: bool,
 }
 
 impl OutOctetStream {
     pub fn new() -> Self {
-        Self {
-            data: Vec::new(),
-            should_write_markers: false,
-        }
+        Self { data: Vec::new() }
     }
 }
 
@@ -105,34 +100,21 @@ impl WriteOctetStream for OutOctetStream {
     fn write_i8(&mut self, v: i8) -> Result<()> {
         self.write_u8(v as u8)
     }
-
-    fn write_debug_marker(&mut self, marker: u8) -> Result<()> {
-        if self.should_write_markers {
-            self.write_u8(marker)
-        } else {
-            Ok(())
-        }
-    }
 }
 
 pub struct InOctetStream {
     pub cursor: Cursor<Vec<u8>>,
-    pub should_verify_markers: bool,
 }
 
 impl InOctetStream {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             cursor: Cursor::new(data.clone()),
-            should_verify_markers: false,
         }
     }
 
     pub fn new_from_cursor(cursor: Cursor<Vec<u8>>) -> Self {
-        Self {
-            cursor,
-            should_verify_markers: false,
-        }
+        Self { cursor }
     }
 }
 
@@ -189,22 +171,19 @@ impl ReadOctetStream for InOctetStream {
         Ok(buf[0] as i8)
     }
 
-    fn verify_debug_marker(&mut self, expected: u8) -> Result<()> {
-        if !self.should_verify_markers {
-            return Ok(()); // Skip verification;
-        }
-        let mut buf = [0; 1];
-        self.cursor.read_exact(&mut buf)?;
-        if buf[0] != expected {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("Invalid marker, expected: {}, got: {}", expected, buf[0]),
-            ));
-        }
-        Ok(())
-    }
-
     fn has_reached_end(&self) -> bool {
         self.cursor.position() as usize == self.cursor.get_ref().len()
     }
+}
+
+pub trait Deserialize {
+    fn deserialize(stream: &mut impl ReadOctetStream) -> Result<Self>
+    where
+        Self: Sized;
+}
+
+pub trait Serialize {
+    fn serialize(&self, stream: &mut impl WriteOctetStream) -> Result<()>
+    where
+        Self: Sized;
 }
