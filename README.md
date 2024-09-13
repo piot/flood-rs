@@ -39,7 +39,7 @@ fn main() -> Result<()> {
     stream.write_u32(42)?;
     stream.write_i16(-123)?;
     stream.write_u8(255)?;
-    let data = stream.data;
+    let octets = stream.octets();
     Ok(())
 }
 ```

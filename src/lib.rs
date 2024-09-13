@@ -40,8 +40,19 @@ impl OutOctetStream {
         Self { data: Vec::new() }
     }
 
+    /// Returns an owned `Vec<u8>` containing the octets.
+    ///
+    /// Clones the internal data, which can be expensive for large vectors.
     #[inline]
-    pub fn data(&self) -> &Vec<u8> {
+    pub fn octets(&self) -> Vec<u8> {
+        self.data.clone()
+    }
+
+    /// Returns a borrowed slice of the internal octets.
+    ///
+    /// This method is more efficient as it avoids cloning.
+    #[inline]
+    pub fn octets_ref(&self) -> &[u8] {
         &self.data
     }
 }

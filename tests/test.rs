@@ -11,7 +11,7 @@ fn test_write_and_read_u32() -> io::Result<()> {
     let mut out_stream = OutOctetStream::new();
     out_stream.write_u32(EXPECTED_U32)?;
 
-    let mut in_stream = InOctetStream::new(out_stream.data());
+    let mut in_stream = InOctetStream::new(out_stream.octets_ref());
     let value = in_stream.read_u32()?;
     assert_eq!(value, EXPECTED_U32);
 
