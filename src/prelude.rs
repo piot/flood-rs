@@ -8,5 +8,6 @@
 //! various parts of the library. By including this prelude, you can reduce the number of individual
 //! imports needed in your code.
 pub use crate::{
-    Deserialize, InOctetStream, OutOctetStream, ReadOctetStream, Serialize, WriteOctetStream,
+    in_borrowed::OctetRefReader, in_stream::InOctetStream, out_borrowed::OctetRefWriter,
+    out_stream::OutOctetStream, Deserialize, ReadOctetStream, Serialize, WriteOctetStream,
 };
