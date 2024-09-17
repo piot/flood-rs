@@ -2,6 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/piot/flood-rs
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::WriteOctetStream;
 use std::io::{Error, ErrorKind, Result, Write};
 
 pub struct OctetRefWriter<'a> {
@@ -55,48 +56,55 @@ impl<'a> Write for OctetRefWriter<'a> {
     }
 }
 
-impl<'a> OctetRefWriter<'a> {
-    pub fn write_u64(&mut self, v: u64) -> Result<()> {
+impl<'a> WriteOctetStream for OctetRefWriter<'a> {
+    fn write_u64(&mut self, v: u64) -> Result<()> {
         self.ensure_capacity(8)?;
         self.data[self.offset..self.offset + 8].copy_from_slice(&v.to_be_bytes());
         self.offset += 8;
         Ok(())
     }
 
-    pub fn write_i64(&mut self, v: i64) -> Result<()> {
+    fn write_i64(&mut self, v: i64) -> Result<()> {
         self.write_u64(v as u64)
     }
 
-    pub fn write_u32(&mut self, v: u32) -> Result<()> {
+    fn write_u32(&mut self, v: u32) -> Result<()> {
         self.ensure_capacity(4)?;
         self.data[self.offset..self.offset + 4].copy_from_slice(&v.to_be_bytes());
         self.offset += 4;
         Ok(())
     }
 
-    pub fn write_i32(&mut self, v: i32) -> Result<()> {
+    fn write_i32(&mut self, v: i32) -> Result<()> {
         self.write_u32(v as u32)
     }
 
-    pub fn write_u16(&mut self, v: u16) -> Result<()> {
+    fn write_u16(&mut self, v: u16) -> Result<()> {
         self.ensure_capacity(2)?;
         self.data[self.offset..self.offset + 2].copy_from_slice(&v.to_be_bytes());
         self.offset += 2;
         Ok(())
     }
 
-    pub fn write_i16(&mut self, v: i16) -> Result<()> {
+    fn write_i16(&mut self, v: i16) -> Result<()> {
         self.write_u16(v as u16)
     }
 
-    pub fn write_u8(&mut self, v: u8) -> Result<()> {
+    fn write_u8(&mut self, v: u8) -> Result<()> {
         self.ensure_capacity(1)?;
         self.data[self.offset] = v;
         self.offset += 1;
         Ok(())
     }
 
-    pub fn write_i8(&mut self, v: i8) -> Result<()> {
+    fn write_i8(&mut self, v: i8) -> Result<()> {
         self.write_u8(v as u8)
+    }
+
+    fn write(&mut self, buf: &[u8]) -> Result<()> {
+        self.ensure_capacity(buf.len())?;
+        self.data[self.offset..self.offset + buf.len()].copy_from_slice(buf);
+        self.offset += buf.len();
+        Ok(())
     }
 }
