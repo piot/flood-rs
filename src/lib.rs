@@ -36,14 +36,42 @@ pub trait ReadOctetStream {
     fn has_reached_end(&self) -> bool;
 }
 
-pub trait Deserialize {
-    fn deserialize(stream: &mut impl ReadOctetStream) -> Result<Self>
-    where
-        Self: Sized;
+pub trait Deserialize: Sized {
+    fn deserialize(stream: &mut impl ReadOctetStream) -> Result<Self>;
 }
 
-pub trait Serialize {
-    fn serialize(&self, stream: &mut impl WriteOctetStream) -> Result<()>
-    where
-        Self: Sized;
+pub trait Serialize: Sized {
+    fn serialize(&self, stream: &mut impl WriteOctetStream) -> Result<()>;
+}
+
+/// A trait for deserializing objects from a octet buffer.
+pub trait BufferDeserializer: Sized {
+    /// Deserializes an instance of `Self` from the given octet buffer.
+    ///
+    /// # Parameters
+    ///
+    /// * `buf`: A octet slice that contains the serialized data.
+    ///
+    /// # Returns
+    ///
+    /// This method returns a `Result<Self>`, which is:
+    /// - `Ok((Self, usize))` on successful deserialization, where the `usize` indicates the number of octets consumed.
+    /// - `Err(io::Error)` if deserialization fails, which could be due to invalid data or unexpected format.
+    fn deserialize(buf: &[u8]) -> Result<(Self, usize)>;
+}
+
+/// A trait for serializing objects to an octet buffer.
+pub trait BufferSerializer: Sized {
+    /// Serializes `self` into the given mutable octet buffer.
+    ///
+    /// # Parameters
+    ///
+    /// * `buf`: A mutable reference to a octet slice that will be populated with serialized data.
+    ///
+    /// # Returns
+    ///
+    /// This method returns a `Result<usize>`, which is:
+    /// - `Ok(usize)` representing the number of octets written to the buffer on success.
+    /// - `Err(io::Error)` if serialization fails, which could occur due to issues with writing to the buffer.
+    fn serialize(&self, buf: &mut &[u8]) -> Result<usize>;
 }
