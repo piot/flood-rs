@@ -77,7 +77,7 @@ impl ReadOctetStream for InOctetStream {
     }
 
     #[must_use]
-    fn has_reached_end(&self) -> bool {
+    fn has_reached_end(&mut self) -> bool {
         self.cursor.position() as usize == self.cursor.get_ref().len()
     }
 }

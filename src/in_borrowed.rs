@@ -24,12 +24,6 @@ impl<'a> OctetRefReader<'a> {
     }
 }
 
-impl<'a> Read for OctetRefReader<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.cursor.read(buf)
-    }
-}
-
 impl<'a> ReadOctetStream for OctetRefReader<'a> {
     fn read_u64(&mut self) -> Result<u64> {
         let mut buf = [0; 8];
@@ -84,7 +78,7 @@ impl<'a> ReadOctetStream for OctetRefReader<'a> {
     }
 
     #[must_use]
-    fn has_reached_end(&self) -> bool {
+    fn has_reached_end(&mut self) -> bool {
         self.cursor.position() as usize == self.cursor.get_ref().len()
     }
 }

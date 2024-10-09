@@ -2,7 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/piot/flood-rs
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use std::io::Result;
+use std::io::{self, Read, Result, Seek, SeekFrom, Write};
 
 pub mod in_borrowed;
 pub mod in_stream;
@@ -22,6 +22,53 @@ pub trait WriteOctetStream {
     fn write_i8(&mut self, v: i8) -> Result<()>;
 }
 
+impl<W: Write> WriteOctetStream for W {
+    /// Writes a octet slice to the stream.
+    fn write(&mut self, v: &[u8]) -> io::Result<()> {
+        self.write_all(v)
+    }
+
+    /// Writes a `u64` in big-endian octet order.
+    fn write_u64(&mut self, v: u64) -> io::Result<()> {
+        self.write_all(&v.to_be_bytes())
+    }
+
+    /// Writes an `i64` in big-endian octet order.
+    fn write_i64(&mut self, v: i64) -> io::Result<()> {
+        self.write_all(&v.to_be_bytes())
+    }
+
+    /// Writes a `u32` in big-endian octet order.
+    fn write_u32(&mut self, v: u32) -> io::Result<()> {
+        self.write_all(&v.to_be_bytes())
+    }
+
+    /// Writes an `i32` in big-endian octet order.
+    fn write_i32(&mut self, v: i32) -> io::Result<()> {
+        self.write_all(&v.to_be_bytes())
+    }
+
+    /// Writes a `u16` in big-endian octet order.
+    fn write_u16(&mut self, v: u16) -> io::Result<()> {
+        self.write_all(&v.to_be_bytes())
+    }
+
+    /// Writes an `i16` in big-endian octet order.
+    fn write_i16(&mut self, v: i16) -> io::Result<()> {
+        self.write_all(&v.to_be_bytes())
+    }
+
+    /// Writes a `u8` directly to the stream.
+    fn write_u8(&mut self, v: u8) -> io::Result<()> {
+        self.write_all(&[v])
+    }
+
+    /// Writes an `i8` directly to the stream.
+    fn write_i8(&mut self, v: i8) -> io::Result<()> {
+        self.write_all(&[v as u8])
+    }
+}
+
 pub trait ReadOctetStream {
     fn read(&mut self, v: &mut [u8]) -> Result<()>;
     fn read_u64(&mut self) -> Result<u64>;
@@ -33,7 +80,130 @@ pub trait ReadOctetStream {
     fn read_u8(&mut self) -> Result<u8>;
     fn read_i8(&mut self) -> Result<i8>;
     #[must_use]
-    fn has_reached_end(&self) -> bool;
+    fn has_reached_end(&mut self) -> bool;
+}
+
+/// Blanket implementation of `ReadOctetStream` for all types that implement `Read` and `Seek`.
+impl<R: Read + Seek> ReadOctetStream for R {
+    /// Reads a octet slice from the stream.
+    fn read(&mut self, v: &mut [u8]) -> io::Result<()> {
+        self.read_exact(v)
+    }
+
+    /// Reads a `u64` in big-endian octet order.
+    fn read_u64(&mut self) -> io::Result<u64> {
+        let mut buf = [0u8; 8];
+        self.read_exact(&mut buf)?;
+        Ok(u64::from_be_bytes(buf))
+    }
+
+    /// Reads an `i64` in big-endian octet order.
+    fn read_i64(&mut self) -> io::Result<i64> {
+        let mut buf = [0u8; 8];
+        self.read_exact(&mut buf)?;
+        Ok(i64::from_be_bytes(buf))
+    }
+
+    /// Reads a `u32` in big-endian octet order.
+    fn read_u32(&mut self) -> io::Result<u32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(u32::from_be_bytes(buf))
+    }
+
+    /// Reads an `i32` in big-endian octet order.
+    fn read_i32(&mut self) -> io::Result<i32> {
+        let mut buf = [0u8; 4];
+        self.read_exact(&mut buf)?;
+        Ok(i32::from_be_bytes(buf))
+    }
+
+    /// Reads a `u16` in big-endian octet order.
+    fn read_u16(&mut self) -> io::Result<u16> {
+        let mut buf = [0u8; 2];
+        self.read_exact(&mut buf)?;
+        Ok(u16::from_be_bytes(buf))
+    }
+
+    /// Reads an `i16` in big-endian octet order.
+    fn read_i16(&mut self) -> io::Result<i16> {
+        let mut buf = [0u8; 2];
+        self.read_exact(&mut buf)?;
+        Ok(i16::from_be_bytes(buf))
+    }
+
+    /// Reads a `u8` directly from the stream.
+    fn read_u8(&mut self) -> io::Result<u8> {
+        let mut buf = [0u8; 1];
+        self.read_exact(&mut buf)?;
+        Ok(buf[0])
+    }
+
+    /// Reads an `i8` directly from the stream.
+    fn read_i8(&mut self) -> io::Result<i8> {
+        let octet = self.read_u8()?;
+        Ok(octet as i8)
+    }
+
+    /// Checks if the stream has reached the end.
+    ///
+    /// This method attempts to peek one octet without consuming it. If no octet is available,
+    /// it indicates that the end of the stream has been reached.
+    /// It is a really hacky way to do it, wished there was another way.
+    fn has_reached_end(&mut self) -> bool {
+        let current_pos = match self.stream_position() {
+            Ok(pos) => pos,
+            Err(_) => return false, // Unable to seek, assume not at end
+        };
+
+        let mut buffer = [0u8; 1];
+        let result = self.read_exact(&mut buffer);
+
+        match result {
+            Ok(_) => {
+                let _ = self.seek(SeekFrom::Start(current_pos));
+                false
+            }
+            Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => true,
+            Err(_) => false,
+        }
+    }
+}
+
+/// Custom trait for seeking within an octet stream.
+pub trait SeekOctetStream {
+    /// Moves the cursor to the specified octet position from the start of the stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `pos` - The octet position to seek to.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the operation is successful.
+    /// * `Err(io::Error)` if an I/O error occurs.
+    fn seek(&mut self, pos: u64) -> io::Result<()>;
+
+    /// Retrieves the current octet position of the cursor in the stream.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(u64)` representing the current octet position.
+    /// * `Err(io::Error)` if an I/O error occurs.
+    fn stream_position(&mut self) -> io::Result<u64>;
+}
+
+/// Blanket implementation of `SeekOctetStream` for all types that implement `Seek`.
+impl<S: Seek> SeekOctetStream for S {
+    /// Moves the cursor to the specified octet position from the start.
+    fn seek(&mut self, pos: u64) -> io::Result<()> {
+        self.seek(SeekFrom::Start(pos)).map(|_| ())
+    }
+
+    /// Retrieves the current cursor position.
+    fn stream_position(&mut self) -> io::Result<u64> {
+        self.stream_position()
+    }
 }
 
 pub trait Deserialize: Sized {

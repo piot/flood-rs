@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::WriteOctetStream;
-use std::io::{Error, ErrorKind, Result, Write};
+use std::io::{Error, ErrorKind, Result};
 
 pub struct OctetRefWriter<'a> {
     data: &'a mut [u8],
@@ -39,20 +39,6 @@ impl<'a> OctetRefWriter<'a> {
 
     pub fn data(&mut self) -> &mut [u8] {
         self.data
-    }
-}
-
-impl<'a> Write for OctetRefWriter<'a> {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.ensure_capacity(buf.len())?;
-        self.data[self.offset..self.offset + buf.len()].copy_from_slice(buf);
-        self.offset += buf.len();
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> Result<()> {
-        // No-op for this implementation
-        Ok(())
     }
 }
 

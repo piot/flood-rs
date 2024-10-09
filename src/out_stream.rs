@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::WriteOctetStream;
-use std::io::{Error, ErrorKind, Result, Write};
+use std::io::Result;
 
 pub struct OutOctetStream {
     data: Vec<u8>,
@@ -88,17 +88,5 @@ impl WriteOctetStream for OutOctetStream {
 
     fn write_i8(&mut self, v: i8) -> Result<()> {
         self.write_u8(v as u8)
-    }
-}
-
-impl Write for OutOctetStream {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        WriteOctetStream::write(self, buf).map_err(|err| Error::new(ErrorKind::Other, err))?;
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> Result<()> {
-        // No-op for this implementation
-        Ok(())
     }
 }
